@@ -16,7 +16,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import HTTPException
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from app.models.pos_models import Order, OrderItem, Bill
@@ -136,7 +136,8 @@ def settle_bill(db: Session, bill_id: int, req) -> dict:
     # 3) Recompute totals (GST from company rates; base = subtotal - disc - promo)
     active = (
         db.query(OrderItem)
-        .filter(OrderItem.order_id == order.order_id, OrderItem.is_cancelled == False)  # noqa: E712
+        .filter(OrderItem.order_id == order.order_id,
+                or_(OrderItem.is_cancelled == False, OrderItem.is_cancelled.is_(None)))  # noqa: E712
         .all()
     )
     subtotal  = sum(round(float(i.unit_price or 0)) * int(i.quantity or 0) for i in active)

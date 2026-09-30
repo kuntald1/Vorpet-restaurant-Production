@@ -444,6 +444,14 @@ def print_kot(db: Session, kot_id: int):
     return kot
 
 
+_CLOSED_ORDER_STATUSES = (
+    OrderStatusEnum.billed,
+    OrderStatusEnum.picked_up,
+    OrderStatusEnum.picked_up_by_delivery_agent,
+    OrderStatusEnum.cancelled,
+)
+
+
 def update_kot_status(db: Session, kot_id: int, data: KOTStatusUpdate):
     kot = db.query(KOT).filter(KOT.kot_id == kot_id).first()
     if not kot:
@@ -453,7 +461,8 @@ def update_kot_status(db: Session, kot_id: int, data: KOTStatusUpdate):
 
     if data.kot_status == KOTStatusEnum.kot_inprocess:
         kot.kitchen_started_at = datetime.utcnow()
-        order.order_status     = OrderStatusEnum.kot_inprocess
+        if order.order_status not in _CLOSED_ORDER_STATUSES:
+            order.order_status = OrderStatusEnum.kot_inprocess
         for ki in kot.kot_items:
             ki.kot_item_status = KOTItemStatusEnum.kot_inprocess
             ki.started_at      = datetime.utcnow()
@@ -468,7 +477,8 @@ def update_kot_status(db: Session, kot_id: int, data: KOTStatusUpdate):
             if ki.order_item:
                 ki.order_item.kot_item_status = KOTItemStatusEnum.ready
         all_items = [i for i in order.items if not i.is_cancelled]
-        if all(i.kot_item_status == KOTItemStatusEnum.ready for i in all_items):
+        if (all(i.kot_item_status == KOTItemStatusEnum.ready for i in all_items)
+                and order.order_status not in _CLOSED_ORDER_STATUSES):
             order.order_status = OrderStatusEnum.ready
 
     kot.kot_status   = data.kot_status
@@ -503,7 +513,8 @@ def update_kot_item_status(db: Session, kot_item_id: int, data: KOTItemStatusUpd
         kot.ready_at   = datetime.utcnow()
         order = get_order(db, kot.order_id)
         all_items = [i for i in order.items if not i.is_cancelled]
-        if all(i.kot_item_status == KOTItemStatusEnum.ready for i in all_items):
+        if (all(i.kot_item_status == KOTItemStatusEnum.ready for i in all_items)
+                and order.order_status not in _CLOSED_ORDER_STATUSES):
             order.order_status = OrderStatusEnum.ready
             order.updated_at   = datetime.utcnow()
     elif any(ki.kot_item_status == KOTItemStatusEnum.kot_inprocess for ki in all_ki):
