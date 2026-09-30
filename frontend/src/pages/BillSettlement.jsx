@@ -7,6 +7,15 @@ const fmt   = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFract
 const today = ()  => new Date().toISOString().slice(0, 10);
 const nAgo  = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
+function BRow({ label, value, strong, color }) {
+  return (
+    <tr style={strong ? brk.totalRow : undefined}>
+      <td style={{ padding: '3px 0', color: color || 'inherit' }}>{label}</td>
+      <td style={{ padding: '3px 0 3px 16px', textAlign: 'right', whiteSpace: 'nowrap', color: color || 'inherit' }}>{value}</td>
+    </tr>
+  );
+}
+
 function buildTree(companies) {
   const parents  = (companies || []).filter(c => !c.parant_company_unique_id);
   const children = (companies || []).filter(c =>  c.parant_company_unique_id);
@@ -130,6 +139,31 @@ export default function BillSettlement() {
   const addsSubtotal = adds.reduce((s, a) => s + Math.round(Number(a.unit_price || 0)) * Number(a.quantity || 0), 0);
   const newSubtotal  = keptSubtotal + addsSubtotal;
   const hasChanges   = items.some(i => i._remove) || adds.length > 0;
+
+  // ── bill total after this settlement — same rules the server applies on save ──
+  const num = (v) => Number(v || 0);
+  const r2  = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const billCo    = (allCompanies || []).find(c => Number(c.company_unique_id) === Number(editing?.order?.company_unique_id ?? editing?.company_unique_id));
+  const discount  = num(editing?.order?.discount_amount);
+  const promo     = num(editing?.promo_amount ?? editing?.order?.promo_amount);
+  const surcharge = num(editing?.order?.table_surcharge_amount) || num(editing?.order?.service_charge);
+  const gstBase   = Math.max(0, newSubtotal - discount - promo);
+  let sgstRate = num(billCo?.sgst), cgstRate = num(billCo?.cgst), sgstAmt, cgstAmt;
+  if (billCo) {
+    sgstAmt = r2(gstBase * sgstRate / 100);
+    cgstAmt = r2(gstBase * cgstRate / 100);
+  } else {
+    // branch rates not available here: derive the combined rate from the tax already stored on this bill
+    const oldBase = Math.max(0, num(editing?.subtotal) - discount - promo);
+    const rate = oldBase > 0 ? num(editing?.tax_amount) / oldBase * 100 : 0;
+    sgstRate = cgstRate = r2(rate / 2);
+    sgstAmt = cgstAmt = r2(gstBase * rate / 200);
+  }
+  const taxAmt     = r2(sgstAmt + cgstAmt);
+  const rawTotal   = newSubtotal - discount - promo + surcharge + taxAmt;
+  const newTotal   = Math.floor(rawTotal + 0.5);
+  const roundOff   = r2(newTotal - rawTotal);
+  const totalDelta = newTotal - num(editing?.total_payable);
 
   const save = async () => {
     if (!hasChanges) { showToast?.('No changes to settle', 'error'); return; }
@@ -289,17 +323,32 @@ export default function BillSettlement() {
             </table>
           )}
 
-          {/* preview + actions */}
-          <div style={{ borderTop: '1px solid #eee', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 13, color: '#555' }}>
-              New subtotal: <strong>{fmt(newSubtotal)}</strong>
-              <span style={{ marginLeft: 10, color: '#999' }}>(SGST/CGST &amp; final total recomputed on save)</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-secondary" onClick={closeEditor}>Cancel</button>
-              <button className="btn btn-primary" onClick={save} disabled={saving || !hasChanges}>
-                {saving ? 'Settling…' : 'Settle bill'}
-              </button>
+          {/* bill total after this settlement */}
+          <div style={{ borderTop: '1px solid #eee', paddingTop: 12 }}>
+            <table style={brk.table}>
+              <tbody>
+                <BRow label={hasChanges ? 'Items (after your changes)' : 'Items'} value={fmt(newSubtotal)} />
+                {discount > 0 && <BRow label="Discount" value={`− ${fmt(discount)}`} />}
+                {promo > 0 && <BRow label={`Promo${editing.promo_code ? ` (${editing.promo_code})` : ''}`} value={`− ${fmt(promo)}`} />}
+                {surcharge > 0 && <BRow label={editing.order?.table_surcharge_label || 'Service / table charge'} value={`+ ${fmt(surcharge)}`} />}
+                <BRow label={`Tax (SGST ${sgstRate}% + CGST ${cgstRate}%)`} value={`+ ${fmt(taxAmt)}`} />
+                {roundOff !== 0 && <BRow label="Round off" value={`${roundOff > 0 ? '+' : '−'} ${fmt(Math.abs(roundOff))}`} />}
+                <BRow strong label="Bill total after settling" value={fmt(newTotal)} />
+                {hasChanges && totalDelta !== 0 && (
+                  <BRow color={totalDelta > 0 ? '#b45309' : '#15803d'}
+                        label={`Change from current total (${fmt(editing.total_payable)})`}
+                        value={`${totalDelta > 0 ? '+' : '−'} ${fmt(Math.abs(totalDelta))}`} />
+                )}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+              <span style={{ fontSize: 12, color: '#999' }}>The server recalculates the final amounts when you settle.</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary" onClick={closeEditor}>Cancel</button>
+                <button className="btn btn-primary" onClick={save} disabled={saving || !hasChanges}>
+                  {saving ? 'Settling…' : 'Settle bill'}
+                </button>
+              </div>
             </div>
           </div>
         </Modal>
@@ -311,3 +360,7 @@ export default function BillSettlement() {
 const lbl  = { display: 'block', fontSize: 12, color: '#666', marginBottom: 4 };
 const sect = { fontWeight: 600, fontSize: 13, margin: '4px 0 8px', color: '#333' };
 const tag  = { fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 8, marginLeft: 8, verticalAlign: 'middle' };
+const brk = {
+  table:    { width: '100%', maxWidth: 440, marginLeft: 'auto', borderCollapse: 'collapse', fontSize: 13, color: '#444' },
+  totalRow: { fontWeight: 700, color: '#166534', fontSize: 14, borderTop: '1px solid #e5e7eb' },
+};
