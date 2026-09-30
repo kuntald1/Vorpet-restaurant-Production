@@ -1,0 +1,64 @@
+name: mrmrs
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mrmrs_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - restaurant_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mrmrs_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - static_files:/app/static
+    ports:
+      - "127.0.0.1:8040:8000"
+    networks:
+      - restaurant_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mrmrs_frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+      - "8444:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - restaurant_net
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    name: mrmrs_postgres_data
+  static_files:
+    name: mrmrs_static_files
+
+networks:
+  restaurant_net:
+    driver: bridge
