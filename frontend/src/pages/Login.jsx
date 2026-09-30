@@ -16,6 +16,7 @@ const MODULES = [
   { icon:'staff',    label:'Staff & Roles' },
   { icon:'chart',    label:'Reports' },
   { icon:'building', label:'Multi-Company' },
+  { icon:'box',      label:'Inventory Module' },
 ];
 
 const ICONS = {
@@ -23,6 +24,7 @@ const ICONS = {
   timer: <><circle cx="50" cy="57" r="31"/><path d="M42 17h16M50 17v9M77 30l7-7M50 57V38M50 57l13 8"/></>,
   receipt: <><path d="M24 10H76V92L67.3 86L58.7 92L50 86L41.3 92L32.7 86L24 92Z"/><path d="M36 30H64M36 44H64M36 58H56"/></>,
   person: <><circle cx="50" cy="32" r="15"/><path d="M20 90C20 64 80 64 80 90"/></>,
+  box: <><path d="M12 40L24 18H76L88 40"/><rect x="12" y="40" width="76" height="48"/><path d="M38 40v16h24V40"/></>,
   building: <><rect x="14" y="18" width="40" height="72"/><rect x="54" y="44" width="32" height="46"/><path d="M22 28h8v8h-8zM36 28h8v8h-8zM22 44h8v8h-8zM36 44h8v8h-8zM22 60h8v8h-8zM36 60h8v8h-8zM62 54h8v8h-8zM74 54h8v8h-8zM62 70h8v8h-8zM74 70h8v8h-8z"/></>,
   chart: <><rect x="14" y="56" width="17" height="34"/><rect x="41" y="38" width="17" height="52"/><rect x="68" y="18" width="17" height="72"/><path d="M8 90H92"/></>,
   staff: <><circle cx="38" cy="32" r="14"/><path d="M12 90C12 62 64 62 64 90"/><path d="M88.0 62.0 L92.8 64.4 L91.7 68.5 L86.3 68.1 L84.5 70.5 L86.2 75.6 L82.5 77.7 L79.0 73.6 L76.0 74.0 L73.6 78.8 L69.5 77.7 L69.9 72.3 L67.5 70.5 L62.4 72.2 L60.3 68.5 L64.4 65.0 L64.0 62.0 L59.2 59.6 L60.3 55.5 L65.7 55.9 L67.5 53.5 L65.8 48.4 L69.5 46.3 L73.0 50.4 L76.0 50.0 L78.4 45.2 L82.5 46.3 L82.1 51.7 L84.5 53.5 L89.6 51.8 L91.7 55.5 L87.6 59.0Z"/><circle cx="76" cy="62" r="5"/></>,
